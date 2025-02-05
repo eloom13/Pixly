@@ -80,6 +80,7 @@ export class PhotoPageComponent implements OnInit {
       this.photoService.getPhotoById(photoId).subscribe({
         next: (data) => {
           this.photo = data;
+          console.log(this.photo);
           this.profileUserId = data.user.id;
           this.similarObject = [...(this.photo.tags || [])]
           this.checkIfOwnprofile();
@@ -101,6 +102,10 @@ export class PhotoPageComponent implements OnInit {
       this.isOwnProfile = true;
     else
       this.isOwnProfile = false; 
+  }
+
+  goToAuthorProfile(){
+      this.router.navigate([`public/profile/user/${this.photo.user.username}`])
   }
 
 

@@ -22,9 +22,9 @@ namespace backend.Endpoints.Admin
             var images = _db.Photos.Count();
             return new OverviewResult
             {
-                Revenue = 2342,
-                TotalViews = 235245,
-                Downloads = 45,
+                Revenue = 236,
+                TotalViews = 79,
+                Downloads = 178,
                 TotalUsers = users,
                 TotalImages = images,
             };
