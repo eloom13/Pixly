@@ -1,18 +1,31 @@
-<p>This full-stack application was developed as a seminar project for the Software Development 1 course. The goal of the project was to create a modern web platform for selling digital photographs using Angular for the frontend and .NET for the backend.</p>
+# 📸 Pixly
 
-<p>Our topic focused on building an application for selling digital photographs, allowing creators to upload and monetize their work while buyers can explore, search, and purchase high-quality images. The emphasis was placed on an intuitive user experience, efficient content organization, and secure transactions.</p> 
-</br>
-<span>Key Features:</span>
-<ul>
-  <li>OpenAI API integration</li>
-  <li>Advanced filtering and search with suggestions</li>
-  <li>Profile viewing and editing</li>
-  <li>Drag-and-drop upload system</li>
-  <li>Automatic image compression</li>
-  <li>PayPal integration for payments</li>
- <li>Reactions on posts</li>
-</ul>
+## 📝 About the Project
+This full-stack application was developed as a seminar project for the **Software Development 1** course. The goal of the project is to provide a modern web platform for selling digital photos, allowing photographers to monetize their work while buyers can explore, search, and purchase high-quality images.
 
+## 🚀 Features
+- 🔐 **JWT Authentication** - Secure login and user management
+- 🧠 **OpenAI API Integration** - AI-powered search and recommendations
+- 🔎 **Advanced Filtering & Search** - Smart suggestions for easier image discovery
+- 🖼️ **Drag-and-Drop Upload System** - Simplifies adding new images
+- 📏 **Automatic Image Compression** - Optimizes storage and speeds up loading
+- 💳 **Stripe Integration** - Secure payments for premium images
+- ❤️ **Reactions on Posts** - Users can like and interact with images
+- 👤 **Profile Management** - Users can view and edit their profiles
+
+## 🛠️ Tech Stack
+### Frontend:
+- **Angular** (TypeScript)
+- **Bootstrap** (Responsive UI)
+- **NgRx** (State management)
+
+### Backend:
+- **.NET Core** (C#)
+- **Entity Framework Core** (Database ORM)
+- **JWT Authentication** (Secure access management)
+
+### Database:
+- **SQL Server**
 
 ![screencapture-localhost-4200-public-home-2025-01-16-22_22_16](https://github.com/user-attachments/assets/f6b29780-76e4-4317-b7a5-c3aa694c0ab0)
 ![screencapture-localhost-4200-public-search-photos-2025-01-16-22_31_13](https://github.com/user-attachments/assets/dabf22fc-c0cb-495f-b4c9-7d03ea97de93)
