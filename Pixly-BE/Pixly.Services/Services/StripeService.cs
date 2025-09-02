@@ -35,15 +35,14 @@ namespace Pixly.Services.Services
             StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
         }
 
-        public async Task<Session> CreatePhotoCheckoutSessionAsync(int photoId, string userId, decimal amount, string successUrl, string cancelUrl)
+        public async Task<Session> CreatePhotoCheckoutSessionAsync(
+    int photoId, string userId, decimal amount, string successUrl, string cancelUrl)
         {
             _logger.LogInformation("Creating checkout session for photo {PhotoId} and user {UserId} with amount {Amount}", photoId, userId, amount);
 
-            // Validate amount
             if (amount <= 0)
                 throw new ValidationException("Amount must be greater than zero", null);
 
-            // Get photo details
             var photo = await _context.Photos
                 .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.PhotoId == photoId);
@@ -54,7 +53,6 @@ namespace Pixly.Services.Services
             if (photo.State != "Approved")
                 throw new ValidationException("Photo is not available for purchase", null);
 
-            // Check if user already purchased this photo
             var existingPurchase = await _context.Purchases
                 .FirstOrDefaultAsync(p => p.PhotoId == photoId && p.UserId == userId && p.Status == "Completed");
 
@@ -67,43 +65,43 @@ namespace Pixly.Services.Services
                 {
                     PaymentMethodTypes = new List<string> { "card" },
                     LineItems = new List<SessionLineItemOptions>
+            {
+                new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
                     {
-                        new SessionLineItemOptions
+                        Currency = "usd",
+                        UnitAmount = (long)(amount * 100),
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
                         {
-                            PriceData = new SessionLineItemPriceDataOptions
-                            {
-                                Currency = "usd",
-                                UnitAmount = (long)(amount * 100), // Convert to cents
-                                ProductData = new SessionLineItemPriceDataProductDataOptions
-                                {
-                                    Name = $"Photo: {photo.Title}",
-                                    Images = new List<string> { photo.Url },
-                                    Description = photo.Description ?? "High-quality photo download",
-                                }
-                            },
-                            Quantity = 1
+                            Name = $"Photo: {photo.Title}",
+                            Images = new List<string> { photo.Url },
+                            Description = photo.Description ?? "High-quality photo download",
                         }
                     },
+                    Quantity = 1
+                }
+            },
                     Mode = "payment",
                     SuccessUrl = successUrl,
                     CancelUrl = cancelUrl,
                     Metadata = new Dictionary<string, string>
-                    {
-                        { "photoId", photoId.ToString() },
-                        { "userId", userId },
-                        { "photoTitle", photo.Title },
-                        { "amount", amount.ToString("F2") }
-                    }
+            {
+                { "photoId", photoId.ToString() },
+                { "userId", userId },
+                { "photoTitle", photo.Title },
+                { "amount", amount.ToString("F2") }
+            }
                 };
 
                 var service = new SessionService();
                 var session = await service.CreateAsync(options);
 
-                // Create pending purchase record
                 await CreatePendingPurchaseAsync(photoId, userId, session.Id, amount);
 
-                _logger.LogInformation("Checkout session created successfully: {SessionId}", session.Id);
+                await CompletePurchaseAsync(session.Id);
 
+                _logger.LogInformation("Checkout session created and purchase completed immediately: {SessionId}", session.Id);
                 return session;
             }
             catch (StripeException ex)
@@ -112,6 +110,7 @@ namespace Pixly.Services.Services
                 throw new ExternalServiceException($"Payment service error: {ex.Message}");
             }
         }
+
 
         public async Task<bool> VerifyPaymentAsync(string sessionId)
         {
@@ -170,8 +169,6 @@ namespace Pixly.Services.Services
             return _mapper.Map<Models.DTOs.Purchase>(purchase);
         }
 
-        #region Private Methods
-
         private async Task CreatePendingPurchaseAsync(int photoId, string userId, string sessionId, decimal amount)
         {
             var purchase = new Database.Purchase
@@ -203,7 +200,6 @@ namespace Pixly.Services.Services
                 _logger.LogWarning("Purchase not found for session {SessionId}", sessionId);
                 return;
             }
-
             if (purchase.Status == "Completed")
             {
                 _logger.LogInformation("Purchase already completed for session {SessionId}", sessionId);
@@ -212,33 +208,35 @@ namespace Pixly.Services.Services
 
             purchase.Status = "Completed";
             purchase.PurchasedAt = DateTime.UtcNow;
-
-            // Increment download count for the photo
             purchase.Photo.DownloadCount++;
 
+            var platformCut = Math.Round(purchase.Amount * 0.20m, 2, MidpointRounding.AwayFromZero);
+
+            var platformEarning = await _context.PlatformEarnings.FirstOrDefaultAsync();
+            if (platformEarning == null)
+            {
+                platformEarning = new PlatformEarning
+                {
+                    TotalEarnings = platformCut,
+                    LastUpdated = DateTime.UtcNow
+                };
+                _context.PlatformEarnings.Add(platformEarning);
+            }
+            else
+            {
+                platformEarning.TotalEarnings += platformCut;
+                platformEarning.LastUpdated = DateTime.UtcNow;
+                _context.PlatformEarnings.Update(platformEarning);
+            }
+
             await _context.SaveChangesAsync();
 
-            // Clear cache for user purchases
             await _cacheService.RemoveAsync($"user_purchases:{purchase.UserId}");
 
-            _logger.LogInformation("Purchase completed for session {SessionId}, photo {PhotoId}",
-                sessionId, purchase.PhotoId);
+            _logger.LogInformation(
+                "Purchase completed for session {SessionId}, photo {PhotoId}. Platform +{PlatformCut}",
+                sessionId, purchase.PhotoId, platformCut);
         }
 
-        private async Task CancelPurchaseAsync(string sessionId)
-        {
-            var purchase = await _context.Purchases
-                .FirstOrDefaultAsync(p => p.StripeSessionId == sessionId);
-
-            if (purchase == null)
-                return;
-
-            purchase.Status = "Cancelled";
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Purchase cancelled for session {SessionId}", sessionId);
-        }
-
-        #endregion
     }
 }
