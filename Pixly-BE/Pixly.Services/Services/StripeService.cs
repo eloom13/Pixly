@@ -1,4 +1,5 @@
-﻿using MapsterMapper;
+﻿using DotNetEnv;
+using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -32,7 +33,7 @@ namespace Pixly.Services.Services
             _mapper = mapper;
             _cacheService = cacheService;
 
-            StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
+            StripeConfiguration.ApiKey = Env.GetString("STRIPE_SECRET_KEY");
         }
 
         public async Task<Session> CreatePhotoCheckoutSessionAsync(
