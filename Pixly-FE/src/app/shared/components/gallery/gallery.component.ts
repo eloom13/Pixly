@@ -102,6 +102,12 @@ export class GalleryComponent implements OnInit, AfterViewInit, OnDestroy{
   toggleLike(photo: PhotoBasic, event: Event): void {
     event.stopPropagation();
 
+    this.authState.isLoggedIn$.pipe(take(1)).subscribe(isLoggedIn => {
+      if (!isLoggedIn) {
+        this.router.navigate(['/login']);
+      }
+    });
+
     if (!photo.photoId) return;
 
     const wasLiked = photo.isCurrentUserLiked;
@@ -129,6 +135,12 @@ export class GalleryComponent implements OnInit, AfterViewInit, OnDestroy{
 
   toggleSave(photo: PhotoBasic, event: Event): void {
     event.stopPropagation();
+
+     this.authState.isLoggedIn$.pipe(take(1)).subscribe(isLoggedIn => {
+      if (!isLoggedIn) {
+        this.router.navigate(['/login']);
+      }
+    });
 
     if (!photo.photoId) return;
 

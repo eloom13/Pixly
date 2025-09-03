@@ -25,15 +25,23 @@ export class StripeService {
   constructor(private http: HttpClient) {}
 
   checkout(photoId: number, amount: number): Observable<CheckoutResponse> {
-    const body: CreateCheckoutRequest = {
-      photoId,
-      amount,
-      successUrl: `${window.location.origin}/public/checkout/success?sid={CHECKOUT_SESSION_ID}&pid=${photoId}`,
-      cancelUrl: `${window.location.origin}/public/checkout/cancel`,
-    };
+  const body: CreateCheckoutRequest = {
+    photoId,
+    amount,
+    successUrl: `${window.location.origin}/public/checkout/success?sid={CHECKOUT_SESSION_ID}&pid=${photoId}`,
+    cancelUrl: `${window.location.origin}/public/checkout/cancel`,
+  };
 
-    return this.http.post<CheckoutResponse>(`${this.baseUrl}/create-checkout-session`, body);
-  }
+  return this.http
+    .post<CheckoutResponse | { id: string }>(`${this.baseUrl}/create-checkout-session`, body)
+    .pipe(
+      map((res: any) => ({
+        sessionId: res.sessionId ?? res.id,
+        checkoutUrl: res.checkoutUrl ?? ''
+      }))
+    );
+}
+
 
   async redirectToCheckout(sessionId: string) {
     const stripe = await this.stripePromise;

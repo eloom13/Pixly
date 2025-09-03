@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { ChangeDetectorRef } from '@angular/core';
-import { Subject,takeUntil } from 'rxjs';
+import { debounceTime, Subject,takeUntil } from 'rxjs';
 import {NgxImageZoomModule} from 'ngx-image-zoom';
 import { NavBarComponent } from '../../shared/components/nav-bar/nav-bar.component';
 import { PhotoService } from '../../core/services/photo.service';
@@ -26,7 +26,9 @@ import { ToastService } from '../../core/services/toast.service';
 })
 export class PhotoPageComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
-  
+  private refreshPhoto$ = new Subject<void>();
+
+
   photo!: PhotoDetail;
   currentUser: any = null;
   currentUserId : number = 0;
@@ -51,6 +53,10 @@ export class PhotoPageComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.checkUrl();
 
+    this.refreshPhoto$
+    .pipe(debounceTime(300), takeUntil(this.ngOnDestory))
+    .subscribe(() => this.getPhotoBySlug());
+
      this.authService.currentUser$.subscribe((user) => {
       this.currentUser = user;
     });
@@ -67,6 +73,7 @@ export class PhotoPageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.ngOnDestory.next();
     this.ngOnDestory.complete();
+    this.refreshPhoto$.complete();
   }
 
   checkUrl(){
@@ -128,21 +135,21 @@ export class PhotoPageComponent implements OnInit, OnDestroy {
   toggleLike(photo: PhotoDetail, event: Event) {
     event.stopPropagation();
 
-     if(!this.currentUser)
-      this.router.navigate(['/login'], { queryParams: { returnUrl: this.currentUrl }});
-
-    if (!photo.photoId) {
+    if (!this.currentUser) {
+      this.router.navigate(['/login'], { queryParams: { returnUrl: this.currentUrl } });
       return;
     }
+
+    if (!photo.photoId) return;
 
     const wasLiked = photo.isCurrentUserLiked;
     photo.isCurrentUserLiked = !wasLiked;
 
-    const action = wasLiked ?
-      this.photoService.unlikePhoto(photo.photoId) :
-      this.photoService.likePhoto(photo.photoId);
-    
-    this.getPhotoBySlug();
+    const action = wasLiked
+      ? this.photoService.unlikePhoto(photo.photoId)
+      : this.photoService.likePhoto(photo.photoId);
+
+    this.refreshPhoto$.next();
 
     action.pipe(takeUntil(this.onDestroy$)).subscribe({
       error: () => {
@@ -151,28 +158,36 @@ export class PhotoPageComponent implements OnInit, OnDestroy {
     });
   }
 
+
   toggleBookmark(photo: PhotoDetail, event: Event) {
+    event.stopPropagation();
 
-     if(!this.currentUser)
-      this.router.navigate(['/login'], { queryParams: { returnUrl: this.currentUrl }});
+    if (!this.currentUser) {
+      this.router.navigate(['/login'], { queryParams: { returnUrl: this.currentUrl } });
+      return;
+    }
 
-    if(this.currentUser)
-      this.currentUserId = this.currentUser.userId;
+    if (!photo?.photoId) return;
 
+    const wasSaved = photo.isCurrentUserSaved;
+    photo.isCurrentUserSaved = !wasSaved;
 
-      event.stopPropagation();
-      const action = photo.isCurrentUserSaved ? this.photoService.unsavePhoto(photo.photoId) : this.photoService.savePhoto(photo.photoId);
-   
-      action.subscribe({
-        next: () => {
-          photo.isCurrentUserLiked = !photo.isCurrentUserSaved;
-          this.getPhotoBySlug();
-        },
-        error: (err) => {
-          console.error('Error updating bookmark status:', err.error?.Message || err.message);
-        },
-      });
+    const action = wasSaved
+      ? this.photoService.unsavePhoto(photo.photoId)
+      : this.photoService.savePhoto(photo.photoId);
+
+    this.refreshPhoto$.next();
+
+    action.pipe(takeUntil(this.onDestroy$)).subscribe({
+      next: () => {
+      },
+      error: (err) => {
+        photo.isCurrentUserSaved = wasSaved;
+        console.error('Error updating bookmark status:', err.error?.Message || err.message);
+      },
+    });
   }
+
 
   purchase() {
 
